@@ -86,44 +86,60 @@ public sealed class DiscoveryQueryRunner
             // Read-committed transaction we always roll back: nothing should write,
             // but if anything slips the guard it cannot persist.
             await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
-            await using var cmd = connection.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = query;
-            cmd.CommandTimeout = _options.CommandTimeoutSeconds;
 
-            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-
-            for (var i = 0; i < reader.FieldCount; i++)
+            // The reader must be fully read AND closed before the transaction is
+            // rolled back. Without MARS, SqlClient refuses to issue any command —
+            // including the rollback — while a DataReader is still open on the
+            // connection ("There is already an open DataReader associated with this
+            // Connection which must be closed first."). Scoping the command + reader
+            // in their own block guarantees they are disposed before RollbackAsync.
+            await using (var cmd = connection.CreateCommand())
             {
-                var name = reader.GetName(i);
-                if (SqlGuard.IsSensitiveColumn(name))
+                cmd.Transaction = tx;
+                cmd.CommandText = query;
+                cmd.CommandTimeout = _options.CommandTimeoutSeconds;
+
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+
+                for (var i = 0; i < reader.FieldCount; i++)
                 {
-                    continue; // never surface secret columns, even if explicitly selected
+                    var name = reader.GetName(i);
+                    if (SqlGuard.IsSensitiveColumn(name))
+                    {
+                        continue; // never surface secret columns, even if explicitly selected
+                    }
+                    columns.Add(name);
+                    keptOrdinals.Add(i);
                 }
-                columns.Add(name);
-                keptOrdinals.Add(i);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    if (rows.Count >= _options.MaxRows)
+                    {
+                        truncated = true;
+                        break;
+                    }
+
+                    var dict = new Dictionary<string, object?>(keptOrdinals.Count);
+                    foreach (var ord in keptOrdinals)
+                    {
+                        dict[reader.GetName(ord)] = reader.IsDBNull(ord) ? null : reader.GetValue(ord);
+                    }
+                    rows.Add(dict);
+                }
             }
 
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                if (rows.Count >= _options.MaxRows)
-                {
-                    truncated = true;
-                    break;
-                }
-
-                var dict = new Dictionary<string, object?>(keptOrdinals.Count);
-                foreach (var ord in keptOrdinals)
-                {
-                    dict[reader.GetName(ord)] = reader.IsDBNull(ord) ? null : reader.GetValue(ord);
-                }
-                rows.Add(dict);
-            }
-
+            // Command and reader are now disposed; the connection is idle and the
+            // belt-and-suspenders rollback can run cleanly.
             await tx.RollbackAsync(cancellationToken);
         }
-        catch (DbException ex)
+        catch (Exception ex)
         {
+            // Surface ANY execution failure through the tool's structured
+            // {status:"error", error:"query_failed", reason:…} shape. Previously only
+            // DbException was caught, so non-DbException failures (e.g. an open-reader
+            // InvalidOperationException, type-mapping errors) escaped as the opaque
+            // "An error occurred invoking 'query_data'" message with no actionable reason.
             _logger.LogWarning(ex, "Discovery query failed to execute for user {UserId}. SQL: {Sql}", user.UserId, query);
             return new DiscoveryQueryOutcome.Failed(ex.Message);
         }

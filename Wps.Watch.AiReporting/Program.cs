@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using Wps.Watch.AiReporting.Authorization;
+using Wps.Watch.AiReporting.Chat;
 using Wps.Watch.AiReporting.Data;
 using Wps.Watch.AiReporting.Discovery;
 using Wps.Watch.AiReporting.Mcp;
@@ -57,6 +58,13 @@ webBuilder.Services.AddControllers();
 webBuilder.Services.AddEndpointsApiExplorer();
 webBuilder.Services.AddSwaggerGen();
 
+// "Ask AI Reports" chat surface (web mode only). Calls the Claude Messages API
+// over HttpClient to translate plain-English questions into guarded SELECTs.
+webBuilder.Services.Configure<AnthropicOptions>(
+    webBuilder.Configuration.GetSection(AnthropicOptions.SectionName));
+webBuilder.Services.AddHttpClient("anthropic", c => c.Timeout = TimeSpan.FromSeconds(120));
+webBuilder.Services.AddScoped<ChatService>();
+
 var app = webBuilder.Build();
 AssertDevAuthSafeForEnvironment(app.Services, app.Environment);
 
@@ -67,9 +75,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Serve the AI Reports front end (Vite build output in wwwroot). Static assets and
+// the SPA fallback sit ahead of the auth shim — only /api/* needs the per-request
+// user context. The fallback is a no-op until `npm run build` has populated wwwroot.
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseMiddleware<DevAuthMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 app.Run();
 
