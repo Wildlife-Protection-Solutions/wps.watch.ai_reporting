@@ -3,6 +3,8 @@
 **Status:** draft for review · 2026-09-28 · branch `claude/charming-cray-kbbz0k`
 **Companion documents:** `EXECUTION-MODEL.md` (how the Epic, issues, models and the executor session work), `prototype-behaviour.md` (implementation-grade behaviour reference), `handoff/` (the design bundle: spec README, prototype HTML, screenshots, brand assets).
 
+> **SUPERSEDED IN PART (2026-09-28, later the same day).** After this plan was written, the product owner supplied the *WPS AI Dashboard v2 — Claude Code Handoff (Build Inputs) v0.1* and the *Data Flows v3* documents. They establish that v2 is built **beside the existing Next.js dashboard** (`ai-usage-dashboard`: Vercel, Neon Postgres, Firebase sign-in), sharing its database (own `v2` schema), its login and its vendor ingestion, with v2 owning only the GitHub Issues sync. The ASP.NET sidecar architecture in §1, the persistence/auth/ingestion decisions, and the task tables in §4 do **not** apply to that target and are being re-planned under `docs/portfolio/v2/`. Still valid and reused: `prototype-behaviour.md` (layout, interaction and visuals, which the Claude Design spec governs), `EXECUTION-MODEL.md` (Epic/issues/model/QA procedure), the handoff bundle, and the non-negotiables, QA gate and operating procedure in §5.
+
 ## How this plan was produced
 
 1. The design handoff bundle was read in full and distilled into `prototype-behaviour.md` (data model, every derived rule, exact copy, 35 README-vs-prototype discrepancies with the reading adopted).
