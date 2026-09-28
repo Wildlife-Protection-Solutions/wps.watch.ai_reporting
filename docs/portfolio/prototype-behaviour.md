@@ -14,7 +14,7 @@ Conventions used in this document:
 - Copy in **bold-quoted** form in sections 2 and 3 is exact and should be copied verbatim (including `·` U+00B7, `—` U+2014, `→` U+2192, `⛓`, `Σ`, `▸`/`▾`, `↗`, curly apostrophes where shown).
 - The prototype runtime maps `onChange` to React's `onChange` (fires per keystroke on text inputs, on commit for `select`/`date`/`checkbox`), and `onBlur` to blur. Persistence rules below say which event triggers a save.
 
-Handoff bundle location during this session: `/tmp/claude-0/-home-user-wps-watch-ai-reporting/0ff003d4-953f-5824-85b5-ff3a21eb7900/scratchpad/upload/design_handoff_wps_portfolio/`.
+Handoff bundle location in the repository: `docs/portfolio/handoff/` (README.md, `WPS Portfolio.dc.html`, support.js, assets/, screenshots/).
 
 ---
 
