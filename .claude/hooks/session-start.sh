@@ -38,6 +38,18 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   } >> "$CLAUDE_ENV_FILE"
 fi
 
+# 1b. dotnet-ef (EF Core migrations CLI) ---------------------------------------
+export PATH="$PATH:$HOME/.dotnet/tools"
+if ! command -v dotnet-ef >/dev/null 2>&1; then
+  log "Installing dotnet-ef 8.0.11"
+  dotnet tool install --global dotnet-ef --version 8.0.11 >/dev/null
+else
+  log "dotnet-ef already present: $(dotnet-ef --version 2>/dev/null | tail -1)"
+fi
+if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
+  echo 'export PATH="$PATH:$HOME/.dotnet/tools"' >> "$CLAUDE_ENV_FILE"
+fi
+
 # 2. npm dependencies for every Vite client -----------------------------------
 while IFS= read -r pkg; do
   dir="$(dirname "$pkg")"
